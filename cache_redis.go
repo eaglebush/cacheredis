@@ -105,6 +105,11 @@ func (rc *RedisCache) Reset() {
 	rc.rdb.FlushAll(rc.ctx)
 }
 
+// Ping tests if the connection to server has succeeded
+func (rc *RedisCache) Ping() (string, error) {
+	return rc.rdb.Ping(rc.ctx).Result()
+}
+
 // ListKeys lists all keys
 func (rc *RedisCache) ListKeys() []string {
 	var (
@@ -121,6 +126,5 @@ func (rc *RedisCache) ListKeys() []string {
 			break
 		}
 	}
-
 	return allkeys
 }
