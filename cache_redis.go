@@ -1,7 +1,8 @@
-package cacheredis
+package servicebase
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	redis "github.com/go-redis/redis/v8"
@@ -9,25 +10,58 @@ import (
 
 // RedisCache - an implementation of the CacheInterface to connect to Redis
 type RedisCache struct {
-	rdb *redis.Client
-	ctx context.Context
+	rdb                *redis.Client
+	ctx                context.Context
+	defExpireMilliSecs int
 }
 
-// NewRedisCache create a rediscache
-func NewRedisCache(address string, password string, db int) *RedisCache {
+var (
+	ErrKeyDoesNotExist error = errors.New(`key does not exist`)
+)
+
+// NewRedisCache create a RedisCache object
+func NewRedisCache(address string, password string, db, milliSecsExpire int) *RedisCache {
 	return &RedisCache{
 		rdb: redis.NewClient(&redis.Options{
 			Addr:     address,
 			Password: password, // no password set
 			DB:       db,       // use default DB
 		}),
-		ctx: context.Background(),
+		ctx:                context.Background(),
+		defExpireMilliSecs: milliSecsExpire,
+	}
+}
+
+// NewRedisCacheContext create a RedisCache object with context
+func NewRedisCacheContext(ctx context.Context, address string, password string, db, milliSecsExpire int) *RedisCache {
+	return &RedisCache{
+		rdb: redis.NewClient(
+			&redis.Options{
+				Addr:     address,
+				Password: password, // no password set
+				DB:       db,       // use default DB
+			}),
+		ctx:                ctx,
+		defExpireMilliSecs: milliSecsExpire,
 	}
 }
 
 // Set a value by key
 func (rc *RedisCache) Set(key string, value []byte) error {
-	return rc.rdb.Set(rc.ctx, key, value, 300*time.Second).Err()
+	return rc.rdb.Set(
+		rc.ctx,
+		key,
+		value,
+		time.Duration(rc.defExpireMilliSecs)*time.Millisecond).Err()
+}
+
+// Set a value by key with a specific expiration
+func (rc *RedisCache) SetEx(key string, value []byte, durationInMilliSecs int) error {
+	return rc.rdb.Set(
+		rc.ctx,
+		key,
+		value,
+		time.Duration(durationInMilliSecs)*time.Millisecond).Err()
 }
 
 // Get value by key
@@ -36,15 +70,14 @@ func (rc *RedisCache) Get(dst []byte, key string) []byte {
 	if err == redis.Nil {
 		return []byte{}
 	}
-
 	return []byte(val)
 }
 
-// Get value by key that outputs error
+// GetWithErr gets value by key that can indicate an error
 func (rc *RedisCache) GetWithErr(key string) ([]byte, error) {
 	val, err := rc.rdb.Get(rc.ctx, key).Result()
-	if err != nil || err == redis.Nil {
-		return []byte{}, err
+	if err == redis.Nil {
+		return []byte{}, ErrKeyDoesNotExist
 	}
 
 	return []byte(val), nil
@@ -74,12 +107,10 @@ func (rc *RedisCache) Reset() {
 
 // ListKeys lists all keys
 func (rc *RedisCache) ListKeys() []string {
-
 	var (
 		cursor  uint64
 		allkeys []string
 	)
-
 	for {
 		keys, cursor, err := rc.rdb.Scan(rc.ctx, cursor, "*", 10).Result()
 		if err != nil {
