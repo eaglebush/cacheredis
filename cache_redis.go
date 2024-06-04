@@ -1,4 +1,4 @@
-package servicebase
+package cacheredis
 
 import (
 	"context"
