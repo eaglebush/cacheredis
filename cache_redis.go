@@ -46,22 +46,16 @@ func NewRedisCacheContext(ctx context.Context, address string, password string, 
 	}
 }
 
-// Set a value by key
-func (rc *RedisCache) Set(key string, value []byte) error {
+// Set a value by key with an expiration in milliseconds
+func (rc *RedisCache) Set(key string, value []byte, exp int) error {
+	if exp == 0 {
+		exp = rc.defExpireMilliSecs
+	}
 	return rc.rdb.Set(
 		rc.ctx,
 		key,
 		value,
-		time.Duration(rc.defExpireMilliSecs)*time.Millisecond).Err()
-}
-
-// Set a value by key with a specific expiration
-func (rc *RedisCache) SetEx(key string, value []byte, durationInMilliSecs int) error {
-	return rc.rdb.Set(
-		rc.ctx,
-		key,
-		value,
-		time.Duration(durationInMilliSecs)*time.Millisecond).Err()
+		time.Duration(exp)*time.Millisecond).Err()
 }
 
 // Get value by key
