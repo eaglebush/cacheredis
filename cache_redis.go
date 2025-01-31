@@ -3,6 +3,7 @@ package cacheredis
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	redis "github.com/go-redis/redis/v8"
@@ -21,20 +22,33 @@ var (
 
 // NewRedisCache create a RedisCache object
 func NewRedisCache(address string, password string, db, milliSecsExpire int) *RedisCache {
-	return &RedisCache{
-		rdb: redis.NewClient(&redis.Options{
-			Addr:     address,
-			Password: password, // no password set
-			DB:       db,       // use default DB
-		}),
+	if strings.LastIndex(address, `:`) == -1 {
+		address += ":6379"
+	}
+	rds := &RedisCache{
+		rdb: redis.NewClient(
+			&redis.Options{
+				Addr:     address,
+				Password: password, // no password set
+				DB:       db,       // use default DB
+			}),
 		ctx:                context.Background(),
 		defExpireMilliSecs: milliSecsExpire,
 	}
+	cmd := rds.rdb.Ping(rds.ctx)
+	result, err := cmd.Result()
+	if err != nil || result != "PONG" {
+		return nil
+	}
+	return rds
 }
 
 // NewRedisCacheContext create a RedisCache object with context
 func NewRedisCacheContext(ctx context.Context, address string, password string, db, milliSecsExpire int) *RedisCache {
-	return &RedisCache{
+	if strings.LastIndex(address, `:`) == -1 {
+		address += ":6379"
+	}
+	rds := &RedisCache{
 		rdb: redis.NewClient(
 			&redis.Options{
 				Addr:     address,
@@ -44,6 +58,12 @@ func NewRedisCacheContext(ctx context.Context, address string, password string, 
 		ctx:                ctx,
 		defExpireMilliSecs: milliSecsExpire,
 	}
+	cmd := rds.rdb.Ping(rds.ctx)
+	result, err := cmd.Result()
+	if err != nil || result != "PONG" {
+		return nil
+	}
+	return rds
 }
 
 // Set a value by key with an expiration in milliseconds
