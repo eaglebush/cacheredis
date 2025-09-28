@@ -75,7 +75,8 @@ func (rc *RedisCache) Set(key string, value []byte, exp int) error {
 		rc.ctx,
 		key,
 		value,
-		time.Duration(exp)*time.Millisecond).Err()
+		time.Duration(exp)*time.Millisecond,
+	).Err()
 }
 
 // Get value by key
@@ -112,6 +113,24 @@ func (rc *RedisCache) Del(keyPattern string) error {
 func (rc *RedisCache) Has(key string) bool {
 	cnt := rc.rdb.Exists(rc.ctx, key)
 	return cnt.Val() > 0
+}
+
+// Incr increments a value
+func (rc *RedisCache) Incr(key string) int {
+	rcmd := rc.rdb.Incr(rc.ctx, key)
+	if rcmd == nil {
+		return -1
+	}
+	return int(rcmd.Val())
+}
+
+// Decr decrements a value
+func (rc *RedisCache) Decr(key string) int {
+	rcmd := rc.rdb.Decr(rc.ctx, key)
+	if rcmd == nil {
+		return -1
+	}
+	return int(rcmd.Val())
 }
 
 // Reset flushes all keys
