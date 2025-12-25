@@ -133,6 +133,14 @@ func (rc *RedisCache) Decr(key string) int {
 	return int(rcmd.Val())
 }
 
+// Expire sets an expiration of a key in milliseconds
+func (rc *RedisCache) Expire(key string, exp int) {
+	if exp == 0 {
+		exp = rc.defExpireMilliSecs
+	}
+	rc.rdb.Expire(rc.ctx, key, time.Duration(exp)*time.Millisecond)
+}
+
 // Reset flushes all keys
 func (rc *RedisCache) Reset() {
 	rc.rdb.FlushAll(rc.ctx)
