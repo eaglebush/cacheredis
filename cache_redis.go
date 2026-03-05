@@ -3,6 +3,7 @@ package cacheredis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -77,6 +78,32 @@ func (rc *RedisCache) Set(key string, value []byte, exp int) error {
 		value,
 		time.Duration(exp)*time.Millisecond,
 	).Err()
+}
+
+// Set a value to a key.
+// exp is in milliseconds
+// If whenNotExists is true, return error if the key exists.
+// If whenNotExists is false, return error when the key does not exist
+func (rc *RedisCache) SetCond(key string, value []byte, exp int, whenNotExists bool) error {
+	if exp == 0 {
+		exp = rc.defExpireMilliSecs
+	}
+	if !whenNotExists {
+		return rc.Set(key, value, exp)
+	}
+	cmd := rc.rdb.SetNX(
+		rc.ctx,
+		key,
+		value,
+		time.Duration(exp)*time.Millisecond,
+	)
+	if err := cmd.Err(); err != nil {
+		return err
+	}
+	if !cmd.Val() {
+		return fmt.Errorf("key already exists")
+	}
+	return nil
 }
 
 // Get value by key
